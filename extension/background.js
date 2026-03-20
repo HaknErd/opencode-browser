@@ -1337,10 +1337,37 @@ async function toolType({ selector, text, tabId, clear = false, index = 0, timeo
   if (text === undefined) throw new Error("Text is required")
   const tab = await getTabById(tabId)
 
-  const result = await runInPage(tab.id, "type", { selector, text, clear, index, timeoutMs, pollMs })
-  if (!result?.ok) throw new Error(result?.error || "Type failed")
+  // First run in page to clear/focus the element
+  const result = await runInPage(tab.id, "type", { selector, text: "", clear, index, timeoutMs, pollMs })
+  if (!result?.ok) throw new Error(result?.error || "Type failed to find/focus element")
+
+  // Now attempt native debugger typing to simulate real keystrokes
+  let typedNative = false
+  if (text.length > 0) {
+    const state = await ensureDebuggerAttached(tab.id)
+    if (state.attached) {
+      try {
+        for (const char of text) {
+          await chrome.debugger.sendCommand({ tabId: tab.id }, "Input.dispatchKeyEvent", {
+            type: "char",
+            text: char
+          })
+          await new Promise(r => setTimeout(r, Math.random() * 50 + 20)) // Random human jitter
+        }
+        typedNative = true
+      } catch (e) {
+        console.warn("[OpenCode] Native typing failed, falling back to JS", e)
+      }
+    }
+
+    if (!typedNative) {
+      // Fallback to purely JS typing
+      await runInPage(tab.id, "type", { selector, text, clear: false, index, timeoutMs, pollMs })
+    }
+  }
+
   const used = result.selectorUsed || selector
-  return { tabId: tab.id, content: `Typed "${text}" into ${used}` }
+  return { tabId: tab.id, content: `Typed "${text}" into ${used}${typedNative ? " (native)" : " (js fallback)"}` }
 }
 
 async function toolSelect({ selector, value, label, optionIndex, tabId, index = 0, timeoutMs, pollMs }) {

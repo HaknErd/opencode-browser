@@ -491,7 +491,7 @@ const plugin: Plugin = async (ctx) => {
       }),
 
       browser_screenshot: tool({
-        description: "Take a screenshot of the current page. Returns base64 image data URL.",
+        description: "Take a screenshot of the current page. Returns base64 image data URL. ONLY use this if the user explicitly requests a screenshot, as it consumes massive amounts of tokens and increases API costs. Avoid using proactively.",
         args: {
           tabId: schema.number().optional(),
         },

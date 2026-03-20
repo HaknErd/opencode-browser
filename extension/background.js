@@ -1795,10 +1795,13 @@ async function toolEval({ script, tabId }) {
   const result = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: async (userScript) => {
-      // Create an async function from the string so they can use 'await'
-      const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-      const fn = new AsyncFunction(userScript);
-      return await fn();
+      try {
+        const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+        const fn = new AsyncFunction(userScript);
+        return await fn();
+      } catch (e) {
+        return { __error: e.message };
+      }
     },
     args: [script],
     world: "MAIN", // Use MAIN world to allow access to page variables if needed, or ISOLATED

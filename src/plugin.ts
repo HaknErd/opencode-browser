@@ -717,7 +717,7 @@ const plugin: Plugin = async (ctx) => {
         },
         async execute({ script, tabId }, ctx) {
           const data = await toolRequest("eval", { script, tabId });
-          return toolResultText(data, "Evaluation complete");
+          return toolResultText(data, JSON.stringify(data));
         },
       }),
     },

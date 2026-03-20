@@ -298,6 +298,7 @@ async function executeTool(toolName, args) {
     close_tab: toolCloseTab,
     navigate: toolNavigate,
     click: toolClick,
+    choose: toolChoose,
     type: toolType,
     select: toolSelect,
     screenshot: toolScreenshot,
@@ -614,15 +615,22 @@ async function pageOps(command, args) {
       el.scrollIntoView({ block: "center", inline: "center" })
     } catch {}
 
+    try {
+      el.focus()
+    } catch {}
+
     const rect = el.getBoundingClientRect()
     const x = Math.min(Math.max(rect.left + rect.width / 2, 0), window.innerWidth - 1)
     const y = Math.min(Math.max(rect.top + rect.height / 2, 0), window.innerHeight - 1)
     const opts = { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y }
+    const PointerCtor = typeof PointerEvent === "function" ? PointerEvent : MouseEvent
 
     try {
       el.dispatchEvent(new MouseEvent("mouseover", opts))
       el.dispatchEvent(new MouseEvent("mousemove", opts))
+      el.dispatchEvent(new PointerCtor("pointerdown", opts))
       el.dispatchEvent(new MouseEvent("mousedown", opts))
+      el.dispatchEvent(new PointerCtor("pointerup", opts))
       el.dispatchEvent(new MouseEvent("mouseup", opts))
       el.dispatchEvent(new MouseEvent("click", opts))
     } catch {}
@@ -648,6 +656,61 @@ async function pageOps(command, args) {
     const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, "value")?.set
     if (setter) setter.call(el, value)
     else el.value = value
+  }
+
+  function getElementText(el) {
+    return (el?.innerText || el?.textContent || el?.value || "").trim()
+  }
+
+  function getElementSummary(el) {
+    if (!el) return null
+    return {
+      text: getElementText(el),
+      value: typeof el.value === "string" ? el.value : "",
+      ariaLabel: el.getAttribute ? el.getAttribute("aria-label") : null,
+      role: el.getAttribute ? el.getAttribute("role") : null,
+      expanded: el.getAttribute ? el.getAttribute("aria-expanded") : null,
+      selected: el.getAttribute ? el.getAttribute("aria-selected") : null,
+      checked: el.getAttribute ? el.getAttribute("aria-checked") : null,
+    }
+  }
+
+  function buildSuggestedSelector(el) {
+    if (!el) return null
+    if (el.id) return `#${window.CSS?.escape ? window.CSS.escape(el.id) : el.id}`
+    if (el.getAttribute) {
+      const dataValue = el.getAttribute("data-value")
+      if (dataValue) {
+        return `${el.tagName.toLowerCase()}[data-value=${JSON.stringify(dataValue)}]`
+      }
+      const role = el.getAttribute("role")
+      if (role) {
+        return `[role=${JSON.stringify(role)}]`
+      }
+    }
+    const classes = typeof el.className === "string" ? el.className.trim().split(/\s+/).filter(Boolean).slice(0, 2) : []
+    const tag = (el.tagName || "div").toLowerCase()
+    return classes.length ? `${tag}.${classes.join(".")}` : tag
+  }
+
+  async function waitForCondition(check, timeoutMs, pollMs) {
+    const start = Date.now()
+    let result = check()
+    while (!result && timeoutMs > 0 && Date.now() - start < timeoutMs) {
+      await new Promise((r) => setTimeout(r, pollMs))
+      result = check()
+    }
+    return result
+  }
+
+  function makeOptionSelector(optionText) {
+    const escaped = JSON.stringify(safeString(optionText))
+    return [
+      `[role='option'][aria-label=${escaped}]`,
+      `[role='menuitem'][aria-label=${escaped}]`,
+      `[data-value=${escaped}]`,
+      `text:${optionText}`,
+    ]
   }
 
   function getInputValues() {
@@ -734,8 +797,93 @@ async function pageOps(command, args) {
     if (!match.chosen) {
       return { ok: false, error: `Element not found for selectors: ${selectors.join(", ")}` }
     }
+    const beforeUrl = location.href
     clickElement(match.chosen)
-    return { ok: true, selectorUsed: match.selectorUsed }
+
+    if (options.waitForSelector) {
+      const appeared = await waitForCondition(
+        () => resolveMatchesOnce(normalizeSelectorList(options.waitForSelector), 0).matches.length > 0,
+        timeoutMs,
+        pollMs
+      )
+      if (!appeared) return { ok: false, error: `Expected selector not found after click: ${options.waitForSelector}` }
+    }
+
+    if (options.waitForGone) {
+      const gone = await waitForCondition(
+        () => resolveMatchesOnce(normalizeSelectorList(options.waitForGone), 0).matches.length === 0,
+        timeoutMs,
+        pollMs
+      )
+      if (!gone) return { ok: false, error: `Expected selector to disappear after click: ${options.waitForGone}` }
+    }
+
+    if (options.waitForText) {
+      const foundText = await waitForCondition(
+        () => matchesText(document.body?.innerText || document.body?.textContent || "", options.waitForText),
+        timeoutMs,
+        pollMs
+      )
+      if (!foundText) return { ok: false, error: `Expected text not found after click: ${options.waitForText}` }
+    }
+
+    if (options.waitForNavigation) {
+      const navigated = await waitForCondition(() => location.href !== beforeUrl, timeoutMs, pollMs)
+      if (!navigated) return { ok: false, error: "Expected navigation after click" }
+    }
+
+    return {
+      ok: true,
+      selectorUsed: match.selectorUsed,
+      verified: !!(options.waitForSelector || options.waitForGone || options.waitForText || options.waitForNavigation),
+    }
+  }
+
+  if (command === "choose") {
+    const controlSelectors = normalizeSelectorList(options.controlSelector)
+    if (!controlSelectors.length) {
+      return { ok: false, error: "controlSelector is required" }
+    }
+
+    const controlMatch = await resolveMatches(controlSelectors, Number.isFinite(options.index) ? options.index : 0, timeoutMs, pollMs)
+    if (!controlMatch.chosen) {
+      return { ok: false, error: `Control not found for selectors: ${controlSelectors.join(", ")}` }
+    }
+
+    const before = getElementSummary(controlMatch.chosen)
+    clickElement(controlMatch.chosen)
+
+    const optionSelectors = options.optionSelector
+      ? normalizeSelectorList(options.optionSelector)
+      : makeOptionSelector(options.optionText)
+    const optionMatch = await resolveMatches(optionSelectors, 0, timeoutMs, pollMs)
+    if (!optionMatch.chosen) {
+      return { ok: false, error: `Option not found for selectors: ${optionSelectors.join(", ")}` }
+    }
+
+    const chosenText = getElementText(optionMatch.chosen) || safeString(options.optionText)
+    clickElement(optionMatch.chosen)
+
+    const selected = await waitForCondition(() => {
+      const refreshedControl = resolveMatchesOnce(controlSelectors, Number.isFinite(options.index) ? options.index : 0).chosen || controlMatch.chosen
+      const after = getElementSummary(refreshedControl)
+      if (matchesText(after?.text, chosenText) || matchesText(after?.value, chosenText)) return true
+      if (before?.expanded === "true" && after?.expanded === "false") return true
+      if (optionMatch.chosen.getAttribute("aria-selected") === "true") return true
+      if (optionMatch.chosen.getAttribute("aria-checked") === "true") return true
+      return false
+    }, timeoutMs, pollMs)
+
+    if (!selected) {
+      return { ok: false, error: `Selection did not stick for ${chosenText || optionSelectors[0]}` }
+    }
+
+    return {
+      ok: true,
+      selectorUsed: controlMatch.selectorUsed,
+      optionSelectorUsed: optionMatch.selectorUsed,
+      chosenText,
+    }
   }
 
   if (command === "type") {
@@ -1055,6 +1203,12 @@ async function pageOps(command, args) {
         text: (el.innerText || el.textContent || "").trim().slice(0, 200),
         tag: (el.tagName || "").toLowerCase(),
         ariaLabel: el.getAttribute ? el.getAttribute("aria-label") : null,
+        role: el.getAttribute ? el.getAttribute("role") : null,
+        visible: isVisible(el),
+        selected: el.getAttribute ? el.getAttribute("aria-selected") : null,
+        expanded: el.getAttribute ? el.getAttribute("aria-expanded") : null,
+        dataValue: el.getAttribute ? el.getAttribute("data-value") : null,
+        selector: buildSuggestedSelector(el),
       }))
       return {
         ok: true,
@@ -1111,14 +1265,50 @@ async function toolNavigate({ url, tabId }) {
   return { tabId: tab.id, content: `Navigated to ${url}` }
 }
 
-async function toolClick({ selector, tabId, index = 0, timeoutMs, pollMs }) {
+async function toolClick({
+  selector,
+  tabId,
+  index = 0,
+  timeoutMs,
+  pollMs,
+  waitForSelector,
+  waitForGone,
+  waitForText,
+  waitForNavigation,
+}) {
   if (!selector) throw new Error("Selector is required")
   const tab = await getTabById(tabId)
 
-  const result = await runInPage(tab.id, "click", { selector, index, timeoutMs, pollMs })
+  const result = await runInPage(tab.id, "click", {
+    selector,
+    index,
+    timeoutMs,
+    pollMs,
+    waitForSelector,
+    waitForGone,
+    waitForText,
+    waitForNavigation,
+  })
   if (!result?.ok) throw new Error(result?.error || "Click failed")
   const used = result.selectorUsed || selector
-  return { tabId: tab.id, content: `Clicked ${used}` }
+  return { tabId: tab.id, content: result.verified ? `Clicked ${used} and verified the change` : `Clicked ${used}` }
+}
+
+async function toolChoose({ controlSelector, optionText, optionSelector, tabId, index = 0, timeoutMs, pollMs }) {
+  if (!controlSelector) throw new Error("controlSelector is required")
+  if (!optionText && !optionSelector) throw new Error("optionText or optionSelector is required")
+  const tab = await getTabById(tabId)
+
+  const result = await runInPage(tab.id, "choose", {
+    controlSelector,
+    optionText,
+    optionSelector,
+    index,
+    timeoutMs,
+    pollMs,
+  })
+  if (!result?.ok) throw new Error(result?.error || "Choose failed")
+  return { tabId: tab.id, content: `Selected ${result.chosenText || optionSelector || optionText} from ${controlSelector}` }
 }
 
 async function toolType({ selector, text, tabId, clear = false, index = 0, timeoutMs, pollMs }) {

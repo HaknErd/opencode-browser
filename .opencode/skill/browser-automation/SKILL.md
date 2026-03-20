@@ -11,7 +11,8 @@ metadata:
 ## What I do
 
 - Provide a safe, composable workflow for browsing tasks
-- Use `browser_query` list and index selection to click reliably
+- Prefer inspect -> act -> verify over blind clicks
+- Use `browser_choose` for custom dropdowns, menus, and comboboxes
 - Confirm state changes after each action
 - Support CLI-first debugging with `opencode-browser tool` commands
 
@@ -22,7 +23,11 @@ metadata:
 3. Navigate with `browser_navigate` if needed
 4. Wait for UI using `browser_query` with `timeoutMs`
 5. Discover candidates using `browser_query` with `mode=list`
-6. Click, type, or select using `index`
+6. Use the narrowest action:
+   - `browser_click` for simple controls
+   - `browser_type` for inputs
+   - `browser_select` for native `<select>` elements
+   - `browser_choose` for custom dropdowns and menus
 7. Confirm using `browser_query` or `browser_snapshot`
 
 ## CLI-first debugging
@@ -40,6 +45,9 @@ This path is useful for reproducing selector/scroll issues quickly before runnin
 - Use `browser_select` for native `<select>` elements
 - Prefer `value` or `label`; use `optionIndex` when needed
 - Example: `browser_select({ selector: "select", value: "plugin" })`
+- Use `browser_choose` for custom combobox/listbox UIs that are not native `<select>` elements
+- Prefer `optionText` first; fall back to `optionSelector` only when needed
+- Example: `browser_choose({ controlSelector: "div[role='combobox']", optionText: "One way" })`
 
 ## Query modes
 
@@ -47,6 +55,9 @@ This path is useful for reproducing selector/scroll issues quickly before runnin
 - `value`: read input values
 - `list`: list many matches with text/metadata
 - `exists`: check presence and count
+- `attribute`: read a single attribute
+- `property`: read a DOM property
+- `html`: inspect a matched element's outerHTML
 - `page_text`: extract visible page text
 
 ## Opening tabs
@@ -57,7 +68,9 @@ This path is useful for reproducing selector/scroll issues quickly before runnin
 ## Troubleshooting
 
 - If a selector fails, run `browser_query` with `mode=page_text` to confirm the content exists
-- Use `mode=list` on broad selectors (`button`, `a`, `*[role="button"]`, `*[role="listitem"]`) and choose by index
+- Use `mode=list` on broad selectors (`button`, `a`, `*[role="button"]`, `*[role="listitem"]`, `*[role="option"]`) before choosing by index
 - For inbox/chat panes, try text selectors first (`text:Subject line`) then verify selection with `browser_query`
+- For clicks that should open or close UI, pass `waitForSelector`, `waitForGone`, `waitForText`, or `waitForNavigation`
+- For custom dropdowns, click the control with `browser_choose` rather than wrapper divs plus manual `li` clicks
 - For scrollable containers, pass both `selector` and `x`/`y` to `browser_scroll` and then verify `scrollTop`
 - Confirm results after each action

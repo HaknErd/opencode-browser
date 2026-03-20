@@ -168,8 +168,9 @@ Core primitives:
 - `browser_open_tab`
 - `browser_close_tab`
 - `browser_navigate`
-- `browser_query` (modes: `text`, `value`, `list`, `exists`, `page_text`; optional `timeoutMs`/`pollMs`)
-- `browser_click` (optional `timeoutMs`/`pollMs`)
+- `browser_query` (modes: `text`, `value`, `list`, `exists`, `attribute`, `property`, `html`, `page_text`; optional `timeoutMs`/`pollMs`)
+- `browser_click` (optional `timeoutMs`/`pollMs` plus click verification)
+- `browser_choose` (custom dropdown/menu/combobox selection)
 - `browser_type` (optional `timeoutMs`/`pollMs`)
 - `browser_select` (optional `timeoutMs`/`pollMs`)
 - `browser_scroll` (optional `timeoutMs`/`pollMs`)
@@ -189,6 +190,21 @@ Selector helpers (usable in `selector`):
 - `css:label:has(input)` to force CSS
 
 Selector-based tools wait up to 2000ms by default; set `timeoutMs: 0` to disable.
+
+## Reliable interaction workflow
+
+- Inspect first with `browser_query` or `browser_snapshot`
+- Use `browser_click` with `waitForSelector`, `waitForGone`, `waitForText`, or `waitForNavigation` when a click should change UI state
+- Use `browser_choose` for custom dropdowns, menus, and comboboxes instead of manually clicking wrapper divs and `li` items
+- Confirm the new state after each action
+
+Examples:
+
+```bash
+npx @different-ai/opencode-browser tool browser_click --args "{\"selector\":\"text:Filters\",\"waitForSelector\":\"[role='menu']\"}"
+npx @different-ai/opencode-browser tool browser_choose --args "{\"controlSelector\":\"div[role='combobox']\",\"optionText\":\"One way\"}"
+npx @different-ai/opencode-browser tool browser_query --args "{\"selector\":\"[role='option']\",\"mode\":\"list\"}"
+```
 
 Diagnostics:
 - `browser_snapshot`

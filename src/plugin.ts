@@ -397,17 +397,56 @@ const plugin: Plugin = async (ctx) => {
       }),
 
       browser_click: tool({
-        description: "Click an element on the page using a CSS selector",
+        description: "Click an element on the page using a selector, with optional verification of the resulting UI change.",
         args: {
           selector: schema.string(),
           index: schema.number().optional(),
           tabId: schema.number().optional(),
           timeoutMs: schema.number().optional(),
           pollMs: schema.number().optional(),
+          waitForSelector: schema.string().optional(),
+          waitForGone: schema.string().optional(),
+          waitForText: schema.string().optional(),
+          waitForNavigation: schema.boolean().optional(),
         },
-        async execute({ selector, index, tabId, timeoutMs, pollMs }, ctx) {
-          const data = await toolRequest("click", { selector, index, tabId, timeoutMs, pollMs });
+        async execute({ selector, index, tabId, timeoutMs, pollMs, waitForSelector, waitForGone, waitForText, waitForNavigation }, ctx) {
+          const data = await toolRequest("click", {
+            selector,
+            index,
+            tabId,
+            timeoutMs,
+            pollMs,
+            waitForSelector,
+            waitForGone,
+            waitForText,
+            waitForNavigation,
+          });
           return toolResultText(data, `Clicked ${selector}`);
+        },
+      }),
+
+      browser_choose: tool({
+        description: "Choose an option from a custom dropdown, menu, or combobox.",
+        args: {
+          controlSelector: schema.string(),
+          optionText: schema.string().optional(),
+          optionSelector: schema.string().optional(),
+          index: schema.number().optional(),
+          tabId: schema.number().optional(),
+          timeoutMs: schema.number().optional(),
+          pollMs: schema.number().optional(),
+        },
+        async execute({ controlSelector, optionText, optionSelector, index, tabId, timeoutMs, pollMs }, ctx) {
+          const data = await toolRequest("choose", {
+            controlSelector,
+            optionText,
+            optionSelector,
+            index,
+            tabId,
+            timeoutMs,
+            pollMs,
+          });
+          return toolResultText(data, `Selected ${optionText ?? optionSelector ?? "option"} from ${controlSelector}`);
         },
       }),
 

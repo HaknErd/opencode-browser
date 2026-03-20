@@ -104,8 +104,13 @@ async function agentOverlay(tabId, options) {
         if (!state.active) {
           const overlay = document.getElementById(OVERLAY_ID);
           const cursor = document.getElementById(CURSOR_ID);
-          if (overlay) overlay.remove();
           if (cursor) cursor.remove();
+          if (overlay) {
+            const textEl = document.getElementById(OVERLAY_ID + '-text');
+            if (textEl) textEl.innerText = "Status: Thinking / Idle...";
+            overlay.style.border = '1px solid #ffcc00';
+            overlay.style.opacity = '0.7';
+          }
           return;
         }
 
@@ -120,14 +125,29 @@ async function agentOverlay(tabId, options) {
             zIndex: '2147483647', display: 'flex', flexDirection: 'column',
             gap: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
             border: '1px solid #00ff00',
-            pointerEvents: 'auto'
+            pointerEvents: 'auto', transition: 'all 0.3s ease'
           });
 
+          const header = document.createElement('div');
+          header.style.display = 'flex';
+          header.style.justifyContent = 'space-between';
+          header.style.alignItems = 'center';
+          header.style.borderBottom = '1px solid #00ff00';
+          header.style.paddingBottom = '5px';
+
           const title = document.createElement('div');
-          title.innerText = '🤖 OpenCode Agent Active';
+          title.innerText = '🤖 OpenCode Agent';
           title.style.fontWeight = 'bold';
-          title.style.borderBottom = '1px solid #00ff00';
-          title.style.paddingBottom = '5px';
+
+          const closeBtn = document.createElement('div');
+          closeBtn.innerText = '✖';
+          closeBtn.style.cursor = 'pointer';
+          closeBtn.style.marginLeft = '15px';
+          closeBtn.title = "Hide Overlay";
+          closeBtn.onclick = () => overlay.remove();
+
+          header.appendChild(title);
+          header.appendChild(closeBtn);
 
           const text = document.createElement('div');
           text.id = OVERLAY_ID + '-text';
@@ -147,13 +167,15 @@ async function agentOverlay(tabId, options) {
             stopBtn.style.backgroundColor = '#666';
           };
 
-          overlay.appendChild(title);
+          overlay.appendChild(header);
           overlay.appendChild(text);
           overlay.appendChild(stopBtn);
           document.body.appendChild(overlay);
         } else {
           const textEl = document.getElementById(OVERLAY_ID + '-text');
           if (textEl) textEl.innerText = state.message || 'Working...';
+          overlay.style.border = '1px solid #00ff00';
+          overlay.style.opacity = '1.0';
         }
 
         if (state.x !== undefined && state.y !== undefined) {

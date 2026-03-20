@@ -79,6 +79,111 @@ async function requestOptionalPermissionsFromClick() {
   }
 }
 
+
+let globalStopFlag = false;
+
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === "HAKNERD_STOP") {
+    console.log("[OpenCode] Emergency stop triggered!");
+    globalStopFlag = true;
+  }
+});
+
+function checkStop() {
+  if (globalStopFlag) throw new Error("Action cancelled by user via Emergency Stop");
+}
+
+async function agentOverlay(tabId, options) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: (state) => {
+        const OVERLAY_ID = 'haknerd-agent-overlay';
+        const CURSOR_ID = 'haknerd-agent-cursor';
+        
+        if (!state.active) {
+          const overlay = document.getElementById(OVERLAY_ID);
+          const cursor = document.getElementById(CURSOR_ID);
+          if (overlay) overlay.remove();
+          if (cursor) cursor.remove();
+          return;
+        }
+
+        let overlay = document.getElementById(OVERLAY_ID);
+        if (!overlay) {
+          overlay = document.createElement('div');
+          overlay.id = OVERLAY_ID;
+          Object.assign(overlay.style, {
+            position: 'fixed', top: '20px', right: '20px',
+            backgroundColor: 'rgba(0, 0, 0, 0.85)', color: '#00ff00',
+            fontFamily: 'monospace', padding: '15px', borderRadius: '8px',
+            zIndex: '2147483647', display: 'flex', flexDirection: 'column',
+            gap: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            border: '1px solid #00ff00',
+            pointerEvents: 'auto'
+          });
+
+          const title = document.createElement('div');
+          title.innerText = '🤖 OpenCode Agent Active';
+          title.style.fontWeight = 'bold';
+          title.style.borderBottom = '1px solid #00ff00';
+          title.style.paddingBottom = '5px';
+
+          const text = document.createElement('div');
+          text.id = OVERLAY_ID + '-text';
+          text.innerText = state.message || 'Working...';
+          
+          const stopBtn = document.createElement('button');
+          stopBtn.innerText = '🛑 Emergency Stop';
+          Object.assign(stopBtn.style, {
+            backgroundColor: '#cc0000', color: '#fff', border: 'none',
+            padding: '8px', cursor: 'pointer', fontWeight: 'bold',
+            borderRadius: '4px', marginTop: '5px'
+          });
+          stopBtn.onclick = () => {
+            chrome.runtime.sendMessage({ type: "HAKNERD_STOP" });
+            text.innerText = "Stopping...";
+            stopBtn.disabled = true;
+            stopBtn.style.backgroundColor = '#666';
+          };
+
+          overlay.appendChild(title);
+          overlay.appendChild(text);
+          overlay.appendChild(stopBtn);
+          document.body.appendChild(overlay);
+        } else {
+          const textEl = document.getElementById(OVERLAY_ID + '-text');
+          if (textEl) textEl.innerText = state.message || 'Working...';
+        }
+
+        if (state.x !== undefined && state.y !== undefined) {
+          let cursor = document.getElementById(CURSOR_ID);
+          if (!cursor) {
+            cursor = document.createElement('div');
+            cursor.id = CURSOR_ID;
+            Object.assign(cursor.style, {
+              position: 'fixed', width: '20px', height: '20px',
+              backgroundColor: 'rgba(255, 0, 0, 0.4)',
+              border: '2px solid red', borderRadius: '50%',
+              pointerEvents: 'none', zIndex: '2147483647',
+              transform: 'translate(-50%, -50%)',
+              transition: 'left 0.1s ease-out, top 0.1s ease-out',
+              boxShadow: '0 0 10px red'
+            });
+            document.body.appendChild(cursor);
+          }
+          cursor.style.left = state.x + 'px';
+          cursor.style.top = state.y + 'px';
+        }
+      },
+      args: [options],
+      world: "ISOLATED"
+    });
+  } catch (e) {
+    // ignore
+  }
+}
+
 async function ensureDebuggerAvailable() {
   if (!chrome.debugger?.attach) {
     return {
@@ -1344,6 +1449,8 @@ async function toolNavigate({ url, tabId }) {
 }
 
 async function toolClick({
+  // injected check
+
   selector,
   x,
   y,
@@ -1360,7 +1467,9 @@ async function toolClick({
     throw new Error("Selector or x/y coordinates are required")
   }
   const tab = await getTabById(tabId)
-  
+  globalStopFlag = false;
+  await agentOverlay(tab.id, { active: true, message: `Clicking element...` });
+  try {
   let clickedNative = false
   let targetX = x
   let targetY = y
@@ -1372,6 +1481,7 @@ async function toolClick({
   if (coordsResult?.ok) {
     targetX = coordsResult.x
     targetY = coordsResult.y
+    await agentOverlay(tab.id, { active: true, message: `Clicking element...`, x: targetX, y: targetY });
     used = coordsResult.selectorUsed || used
     beforeUrl = coordsResult.beforeUrl
     
@@ -1439,6 +1549,9 @@ async function toolClick({
   }
 
   return { tabId: tab.id, content: `Clicked ${used}${clickedNative ? " (native)" : " (js fallback)"}` }
+  } finally {
+    await agentOverlay(tab.id, { active: false });
+  }
 }
 
 async function toolChoose({ controlSelector, optionText, optionSelector, tabId, index = 0, timeoutMs, pollMs }) {
@@ -1459,10 +1572,12 @@ async function toolChoose({ controlSelector, optionText, optionSelector, tabId, 
 }
 
 async function toolType({ selector, text, tabId, clear = false, index = 0, timeoutMs, pollMs }) {
+  globalStopFlag = false;
   if (!selector) throw new Error("Selector is required")
   if (text === undefined) throw new Error("Text is required")
   const tab = await getTabById(tabId)
-
+  await agentOverlay(tab.id, { active: true, message: `Typing: ${text}` });
+  try {
   // First run in page to clear/focus the element
   const result = await runInPage(tab.id, "type", { selector, text: "", clear, index, timeoutMs, pollMs })
   if (!result?.ok) throw new Error(result?.error || "Type failed to find/focus element")
@@ -1503,6 +1618,7 @@ async function toolType({ selector, text, tabId, clear = false, index = 0, timeo
               unmodifiedText: char
             });
           }
+          checkStop();
           await new Promise(r => setTimeout(r, Math.random() * 50 + 20)) // Random human jitter
         }
         typedNative = true
@@ -1519,6 +1635,9 @@ async function toolType({ selector, text, tabId, clear = false, index = 0, timeo
 
   const used = result.selectorUsed || selector
   return { tabId: tab.id, content: `Typed "${text}" into ${used}${typedNative ? " (native)" : " (js fallback)"}` }
+  } finally {
+    await agentOverlay(tab.id, { active: false });
+  }
 }
 
 async function toolSelect({ selector, value, label, optionIndex, tabId, index = 0, timeoutMs, pollMs }) {

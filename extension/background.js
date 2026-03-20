@@ -110,6 +110,11 @@ async function agentOverlay(tabId, options) {
             if (textEl) textEl.innerText = "Status: Thinking / Idle...";
             overlay.style.border = '1px solid #ffcc00';
             overlay.style.opacity = '0.7';
+            
+            if (window._haknerdOverlayTimeout) clearTimeout(window._haknerdOverlayTimeout);
+            window._haknerdOverlayTimeout = setTimeout(() => {
+              if (overlay && overlay.parentNode) overlay.remove();
+            }, 3000);
           }
           return;
         }
@@ -176,6 +181,7 @@ async function agentOverlay(tabId, options) {
           if (textEl) textEl.innerText = state.message || 'Working...';
           overlay.style.border = '1px solid #00ff00';
           overlay.style.opacity = '1.0';
+          if (window._haknerdOverlayTimeout) clearTimeout(window._haknerdOverlayTimeout);
         }
 
         if (state.x !== undefined && state.y !== undefined) {

@@ -896,12 +896,26 @@ async function pageOps(command, args) {
 
   function getPageText(limit, pattern, flags) {
     const parts = []
+    
+    // Temporarily hide the overlay so it doesn't pollute the text
+    const overlay = document.getElementById('haknerd-agent-overlay');
+    let overlayDisplay = '';
+    if (overlay) {
+      overlayDisplay = overlay.style.display;
+      overlay.style.display = 'none';
+    }
+
     const bodyText = safeString(document.body?.innerText || "")
     if (bodyText.trim()) parts.push(bodyText)
     const inputValues = getInputValues()
     if (inputValues) parts.push(inputValues)
     const pseudo = getPseudoText()
     if (pseudo) parts.push(pseudo)
+    
+    if (overlay) {
+      overlay.style.display = overlayDisplay;
+    }
+
     const text = parts.filter(Boolean).join("\n\n").slice(0, Math.max(0, limit))
     return {
       url: location.href,
@@ -1737,6 +1751,7 @@ async function toolSnapshot({ tabId }) {
 
       function build(el, depth = 0, uid = 0) {
         if (!el || depth > 12) return { nodes: [], nextUid: uid }
+        if (el.id === 'haknerd-agent-overlay' || el.id === 'haknerd-agent-cursor') return { nodes: [], nextUid: uid }
         const nodes = []
 
         if (!isVisible(el)) return { nodes: [], nextUid: uid }

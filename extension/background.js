@@ -1791,25 +1791,42 @@ async function toolErrors({ tabId, clear = false } = {}) {
 async function toolEval({ script, tabId }) {
   if (!script) throw new Error("script is required")
   const tab = await getTabById(tabId)
+  
+  // Use debugger Runtime.evaluate to bypass CSP on strict sites (like Google.com)
+  const state = await ensureDebuggerAttached(tab.id)
+  if (!state.attached) {
+    throw new Error(state.unavailableReason || "Could not attach debugger to bypass CSP for evaluation.")
+  }
 
-  const result = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: async (userScript) => {
-      try {
-        const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-        const fn = new AsyncFunction(userScript);
-        return await fn();
-      } catch (e) {
-        return { __error: e.message };
+  try {
+    // Wrap in an IIFE to allow top-level await and scoped variables
+    const expression = `(async () => {
+      ${script}
+    })()`;
+
+    const result = await chrome.debugger.sendCommand({ tabId: tab.id }, "Runtime.evaluate", {
+      expression,
+      returnByValue: true,
+      awaitPromise: true,
+      userGesture: true
+    });
+
+    if (result.exceptionDetails) {
+      return {
+        tabId: tab.id,
+        content: JSON.stringify({ __error: result.exceptionDetails.exception?.description || result.exceptionDetails.text }, null, 2)
       }
-    },
-    args: [script],
-    world: "MAIN", // Use MAIN world to allow access to page variables if needed, or ISOLATED
-  })
+    }
 
-  return {
-    tabId: tab.id,
-    content: JSON.stringify(result[0]?.result ?? null, null, 2),
+    return {
+      tabId: tab.id,
+      content: JSON.stringify(result.result?.value ?? null, null, 2),
+    }
+  } catch (e) {
+    return {
+      tabId: tab.id,
+      content: JSON.stringify({ __error: e.message }, null, 2),
+    }
   }
 }
 

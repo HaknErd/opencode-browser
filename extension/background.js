@@ -613,7 +613,7 @@ async function pageOps(command, args) {
 
   function clickElement(el) {
     try {
-      el.scrollIntoView({ block: "center", inline: "center" })
+      el.scrollIntoView({ block: "center", inline: "nearest" })
     } catch {}
 
     try {
@@ -793,6 +793,67 @@ async function pageOps(command, args) {
   const pattern = typeof options.pattern === "string" ? options.pattern : null
   const flags = typeof options.flags === "string" ? options.flags : "i"
 
+  if (command === "getCoords") {
+    let targetElement = null
+    let selectorUsed = null
+
+    if (options.x !== undefined && options.y !== undefined) {
+      return { ok: true, x: options.x, y: options.y, selectorUsed: `coordinates (${options.x}, ${options.y})`, beforeUrl: location.href }
+    } else {
+      const match = await resolveMatches(selectors, index, timeoutMs, pollMs)
+      if (!match.chosen) {
+        return { ok: false, error: `Element not found for selectors: ${selectors.join(", ")}` }
+      }
+      try {
+        match.chosen.scrollIntoView({ block: "center", inline: "nearest" })
+      } catch {}
+      const rect = match.chosen.getBoundingClientRect()
+      return { 
+        ok: true, 
+        x: rect.left + rect.width / 2, 
+        y: rect.top + rect.height / 2, 
+        selectorUsed: match.selectorUsed,
+        beforeUrl: location.href
+      }
+    }
+  }
+
+  if (command === "waitConditions") {
+    if (options.waitForSelector) {
+      const appeared = await waitForCondition(
+        () => resolveMatchesOnce(normalizeSelectorList(options.waitForSelector), 0).matches.length > 0,
+        timeoutMs,
+        pollMs
+      )
+      if (!appeared) return { ok: false, error: `Expected selector not found after click: ${options.waitForSelector}` }
+    }
+
+    if (options.waitForGone) {
+      const gone = await waitForCondition(
+        () => resolveMatchesOnce(normalizeSelectorList(options.waitForGone), 0).matches.length === 0,
+        timeoutMs,
+        pollMs
+      )
+      if (!gone) return { ok: false, error: `Expected selector to disappear after click: ${options.waitForGone}` }
+    }
+
+    if (options.waitForText) {
+      const foundText = await waitForCondition(
+        () => matchesText(document.body?.innerText || document.body?.textContent || "", options.waitForText),
+        timeoutMs,
+        pollMs
+      )
+      if (!foundText) return { ok: false, error: `Expected text not found after click: ${options.waitForText}` }
+    }
+
+    if (options.waitForNavigation && options.beforeUrl) {
+      const navigated = await waitForCondition(() => location.href !== options.beforeUrl, timeoutMs, pollMs)
+      if (!navigated) return { ok: false, error: "Navigation did not occur within timeout" }
+    }
+
+    return { ok: true }
+  }
+
   if (command === "click") {
     let targetElement = null
     let selectorUsed = null
@@ -813,7 +874,9 @@ async function pageOps(command, args) {
     }
 
     const beforeUrl = location.href
-    clickElement(targetElement)
+    if (!options.skipClick) {
+      clickElement(targetElement)
+    }
 
     if (options.waitForSelector) {
       const appeared = await waitForCondition(
@@ -910,7 +973,7 @@ async function pageOps(command, args) {
     }
 
     try {
-      match.chosen.scrollIntoView({ block: "center", inline: "center" })
+      match.chosen.scrollIntoView({ block: "center", inline: "nearest" })
     } catch {}
 
     try {
@@ -982,7 +1045,7 @@ async function pageOps(command, args) {
     }
 
     try {
-      selectEl.scrollIntoView({ block: "center", inline: "center" })
+      selectEl.scrollIntoView({ block: "center", inline: "nearest" })
     } catch {}
 
     try {
@@ -1040,7 +1103,7 @@ async function pageOps(command, args) {
     }
 
     try {
-      match.chosen.scrollIntoView({ block: "center", inline: "center" })
+      match.chosen.scrollIntoView({ block: "center", inline: "nearest" })
     } catch {}
 
     try {
@@ -1297,22 +1360,85 @@ async function toolClick({
     throw new Error("Selector or x/y coordinates are required")
   }
   const tab = await getTabById(tabId)
+  
+  let clickedNative = false
+  let targetX = x
+  let targetY = y
+  let used = selector || `coordinates (${x}, ${y})`
+  let beforeUrl = null
 
-  const result = await runInPage(tab.id, "click", {
-    selector,
-    x,
-    y,
-    index,
-    timeoutMs,
-    pollMs,
-    waitForSelector,
-    waitForGone,
-    waitForText,
-    waitForNavigation,
-  })
-  if (!result?.ok) throw new Error(result?.error || "Click failed")
-  const used = result.selectorUsed || selector || `coordinates (${x}, ${y})`
-  return { tabId: tab.id, content: result.verified ? `Clicked ${used} and verified the change` : `Clicked ${used}` }
+  // Get coords and beforeUrl
+  const coordsResult = await runInPage(tab.id, "getCoords", { selector, x, y, index, timeoutMs, pollMs })
+  if (coordsResult?.ok) {
+    targetX = coordsResult.x
+    targetY = coordsResult.y
+    used = coordsResult.selectorUsed || used
+    beforeUrl = coordsResult.beforeUrl
+    
+    const state = await ensureDebuggerAttached(tab.id)
+    if (state.attached && targetX !== undefined && targetY !== undefined) {
+      try {
+        // First move the mouse to trigger any :hover or mouseenter listeners
+        await chrome.debugger.sendCommand({ tabId: tab.id }, "Input.dispatchMouseEvent", {
+          type: "mouseMoved",
+          x: targetX,
+          y: targetY
+        });
+        await new Promise(r => setTimeout(r, Math.random() * 20 + 10)); // Human jitter
+        
+        await chrome.debugger.sendCommand({ tabId: tab.id }, "Input.dispatchMouseEvent", {
+          type: "mousePressed",
+          button: "left",
+          x: targetX,
+          y: targetY,
+          clickCount: 1
+        });
+        await new Promise(r => setTimeout(r, Math.random() * 30 + 20)); // Human jitter
+        await chrome.debugger.sendCommand({ tabId: tab.id }, "Input.dispatchMouseEvent", {
+          type: "mouseReleased",
+          button: "left",
+          x: targetX,
+          y: targetY,
+          clickCount: 1
+        });
+        clickedNative = true
+      } catch (e) {
+        console.warn("[OpenCode] Native click failed, falling back to JS", e)
+      }
+    }
+  }
+
+  if (clickedNative) {
+    // If native click succeeded, we only need to evaluate the wait conditions
+    const waitResult = await runInPage(tab.id, "waitConditions", {
+      beforeUrl,
+      timeoutMs,
+      pollMs,
+      waitForSelector,
+      waitForGone,
+      waitForText,
+      waitForNavigation
+    })
+    if (!waitResult?.ok) throw new Error(waitResult?.error || "Wait conditions failed after native click")
+  } else {
+    // Fallback to purely JS click if native failed or couldn't get coords
+    const result = await runInPage(tab.id, "click", {
+      selector,
+      x,
+      y,
+      index,
+      timeoutMs,
+      pollMs,
+      waitForSelector,
+      waitForGone,
+      waitForText,
+      waitForNavigation,
+    })
+    if (!result?.ok) throw new Error(result?.error || "Click failed")
+    used = result.selectorUsed || selector || `coordinates (${x}, ${y})`
+  }
+
+  return { tabId: tab.id, content: `Clicked ${used}${clickedNative ? " (native)" : " (js fallback)"}` }
 }
 
 async function toolChoose({ controlSelector, optionText, optionSelector, tabId, index = 0, timeoutMs, pollMs }) {
@@ -1348,10 +1474,35 @@ async function toolType({ selector, text, tabId, clear = false, index = 0, timeo
     if (state.attached) {
       try {
         for (const char of text) {
-          await chrome.debugger.sendCommand({ tabId: tab.id }, "Input.dispatchKeyEvent", {
-            type: "char",
-            text: char
-          })
+          // DevTools protocol requires keydown, char, keyup for a full stroke
+          if (char === '\\n' || char === '\\r' || char === '\n' || char === '\r') {
+            await chrome.debugger.sendCommand({ tabId: tab.id }, "Input.dispatchKeyEvent", {
+              type: "keyDown",
+              key: "Enter",
+              code: "Enter",
+              windowsVirtualKeyCode: 13,
+              nativeVirtualKeyCode: 13,
+              text: "\r"
+            });
+            await chrome.debugger.sendCommand({ tabId: tab.id }, "Input.dispatchKeyEvent", {
+              type: "keyUp",
+              key: "Enter",
+              code: "Enter",
+              windowsVirtualKeyCode: 13,
+              nativeVirtualKeyCode: 13
+            });
+          } else {
+            await chrome.debugger.sendCommand({ tabId: tab.id }, "Input.dispatchKeyEvent", {
+              type: "keyDown",
+              text: char,
+              unmodifiedText: char
+            });
+            await chrome.debugger.sendCommand({ tabId: tab.id }, "Input.dispatchKeyEvent", {
+              type: "keyUp",
+              text: char,
+              unmodifiedText: char
+            });
+          }
           await new Promise(r => setTimeout(r, Math.random() * 50 + 20)) // Random human jitter
         }
         typedNative = true

@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "OpenCode Browser Automation",
-  "short_name": "OpenCode Browser",
+  "name": "HaknErd Browser Automation",
+  "short_name": "HaknErd Browser",
   "version": "4.6.0",
-  "description": "Browser automation for OpenCode",
-  "homepage_url": "https://github.com/different-ai/opencode-browser",
+  "description": "Browser automation for OpenCode by HaknErd",
+  "homepage_url": "https://github.com/HaknErd/opencode-browser",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu9KICDxZh63m3QeQX13b37J/p7eG+cIEk4UDv+Phr7W/rqruy8DtdLFZ3WC37JYXo2Qk2iTWzIuBYjnc367RMY4Khu3f5hRyp67nvujuNY+0ACkrNGJk/viTodcW3CDcib9gijQQmPI1ZFkbec3qG0CN1hFxyn6pkdQZ8rnU9uo8ctntHIXrcfaHvQNT3AIVQfe8UjWPgalB0YCq9RamPVfMu6bG+6QLZGSKbvYDn0o5f8A/JZkm6K0MIii2EH61Oszhb/9GzZOciKqRZN+0mo23xbWHDp4ofDFyfQyMi83D3nDNldVGPSkIYlQWZaKHalaCoBRK+gzz7uuFoGrcsQIDAQAB",
   "permissions": [
     "tabs",
@@ -25,7 +25,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "OpenCode Browser",
+    "default_title": "HaknErd Browser",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",

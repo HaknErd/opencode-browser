@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-// Chrome Native Messaging host for OpenCode Browser.
+// Chrome Native Messaging host for HaknErd Browser.
 // Speaks length-prefixed JSON over stdin/stdout and forwards messages to the local broker over a unix socket.
 
 const net = require("net");

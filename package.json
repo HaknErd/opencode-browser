@@ -1,7 +1,7 @@
 {
-  "name": "@different-ai/opencode-browser",
+  "name": "@haknerd/opencode-browser",
   "version": "4.6.1",
-  "description": "Browser automation plugin for OpenCode (native messaging + per-tab ownership).",
+  "description": "HaknErd Browser automation plugin for OpenCode (native messaging + per-tab ownership).",
   "type": "module",
   "bin": {
     "opencode-browser": "bin/cli.js"
@@ -39,16 +39,16 @@
     "plugin",
     "native-messaging"
   ],
-  "author": "Benjamin Shafii",
+  "author": "Hakan Erdogan",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/different-ai/opencode-browser.git"
+    "url": "git+https://github.com/HaknErd/opencode-browser.git"
   },
   "bugs": {
-    "url": "https://github.com/different-ai/opencode-browser/issues"
+    "url": "https://github.com/HaknErd/opencode-browser/issues"
   },
-  "homepage": "https://github.com/different-ai/opencode-browser#readme",
+  "homepage": "https://github.com/HaknErd/opencode-browser#readme",
   "peerDependencies": {
     "@opencode-ai/plugin": "*"
   },

@@ -1,10 +1,10 @@
-# AGENTS.md - OpenCode Browser
+# AGENTS.md - HaknErd Browser
 
 Guidelines for AI agents working on this codebase.
 
 ## Project Overview
 
-OpenCode Browser provides browser automation tools to OpenCode via an OpenCode **plugin**, backed by a Chrome/Chromium **extension**.
+HaknErd Browser provides browser automation tools to OpenCode via an OpenCode **plugin**, backed by a Chrome/Chromium **extension**.
 
 Architecture:
 
@@ -40,7 +40,7 @@ node --check bin/native-host.cjs
 To test end-to-end you need:
 
 1. The extension loaded in `chrome://extensions`
-2. Native host manifest installed (via `npx @different-ai/opencode-browser install`)
+2. Native host manifest installed (via `npx @haknerd/opencode-browser install`)
 3. OpenCode configured with the plugin
 
 Then run in a fresh OpenCode process:

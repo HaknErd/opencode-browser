@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * OpenCode Browser - CLI
+ * HaknErd Browser - CLI
  *
  * Architecture (v4):
  *   OpenCode Plugin <-> Local Broker (unix socket) <-> Native Messaging Host <-> Chrome Extension
@@ -40,7 +40,7 @@ const BROKER_DST = join(BASE_DIR, "broker.cjs");
 const NATIVE_HOST_DST = join(BASE_DIR, "native-host.cjs");
 const CONFIG_DST = join(BASE_DIR, "config.json");
 
-const NATIVE_HOST_NAME = "com.opencode.browser_automation";
+const NATIVE_HOST_NAME = "com.haknerd.opencode_browser";
 const OS_NAME = platform();
 const NATIVE_HOST_WRAPPER = join(
   BASE_DIR,
@@ -364,7 +364,7 @@ function writeNativeHostManifest(dir, extensionId, hostPath) {
 
   const manifest = {
     name: NATIVE_HOST_NAME,
-    description: "OpenCode Browser native messaging host",
+    description: "HaknErd Browser native messaging host",
     path: hostPath || NATIVE_HOST_DST,
     type: "stdio",
     allowed_origins: [`chrome-extension://${extensionId}/`],
@@ -421,7 +421,7 @@ function reportWindowsNativeHostStatus() {
     }
   }
   if (!foundAny) {
-    warn("No native host registry entries found. Run: npx @different-ai/opencode-browser install");
+    warn("No native host registry entries found. Run: npx @haknerd/opencode-browser install");
   }
 }
 
@@ -518,7 +518,7 @@ async function listTools() {
 async function runToolCommand() {
   const toolName = process.argv[3];
   if (!toolName) {
-    throw new Error("Usage: npx @different-ai/opencode-browser tool <toolName> [argsJson]");
+    throw new Error("Usage: npx @haknerd/opencode-browser tool <toolName> [argsJson]");
   }
 
   const args = parseJsonArg(getToolArgJson(), {});
@@ -551,7 +551,7 @@ async function selfTest() {
   const status = parseMaybeJson(statusRaw);
   if (!status || status.broker !== true || status.hostConnected !== true) {
     throw new Error(
-      "browser_status indicates the extension is not connected. Run `npx @different-ai/opencode-browser install` and click the extension icon in Chrome."
+      "browser_status indicates the extension is not connected. Run `npx @haknerd/opencode-browser install` and click the extension icon in Chrome."
     );
   }
 
@@ -616,7 +616,7 @@ async function main() {
   const command = process.argv[2];
 
   console.log(`
-${color("cyan", color("bright", "OpenCode Browser v4"))}
+${color("cyan", color("bright", "HaknErd Browser v4"))}
 ${color("cyan", "Browser automation plugin (native messaging + per-tab ownership)")}
 `);
 
@@ -641,29 +641,29 @@ ${color("cyan", "Browser automation plugin (native messaging + per-tab ownership
   } else {
     log(`
 ${color("bright", "Usage:")}
-  npx @different-ai/opencode-browser install
-  npx @different-ai/opencode-browser update
-  npx @different-ai/opencode-browser status
-  npx @different-ai/opencode-browser uninstall
-  npx @different-ai/opencode-browser tools
-  npx @different-ai/opencode-browser tool <toolName> [argsJson]
-  npx @different-ai/opencode-browser self-test
-  npx @different-ai/opencode-browser agent-install
-  npx @different-ai/opencode-browser agent-gateway
+  npx @haknerd/opencode-browser install
+  npx @haknerd/opencode-browser update
+  npx @haknerd/opencode-browser status
+  npx @haknerd/opencode-browser uninstall
+  npx @haknerd/opencode-browser tools
+  npx @haknerd/opencode-browser tool <toolName> [argsJson]
+  npx @haknerd/opencode-browser self-test
+  npx @haknerd/opencode-browser agent-install
+  npx @haknerd/opencode-browser agent-gateway
 
 ${color("bright", "Options:")}
   --extension-id <id> (or OPENCODE_BROWSER_EXTENSION_ID)
   --args '{"selector":"text:Inbox"}' (for tool command)
 
 ${color("bright", "Quick Start:")}
-  1. Run: npx @different-ai/opencode-browser install
+  1. Run: npx @haknerd/opencode-browser install
   2. Restart OpenCode
   3. Use: browser_navigate / browser_click / browser_snapshot
 
 ${color("bright", "Agent Mode:")}
-  1. Run: npx @different-ai/opencode-browser agent-install
+  1. Run: npx @haknerd/opencode-browser agent-install
   2. Set OPENCODE_BROWSER_BACKEND=agent
-  3. Optionally run: npx @different-ai/opencode-browser agent-gateway
+  3. Optionally run: npx @haknerd/opencode-browser agent-gateway
 `);
   }
 
@@ -677,7 +677,7 @@ async function install() {
   const osName = OS_NAME;
   if (osName !== "darwin" && osName !== "linux" && osName !== "win32") {
     error(`Unsupported platform: ${osName}`);
-    error("OpenCode Browser currently supports macOS, Linux, and Windows only.");
+    error("HaknErd Browser currently supports macOS, Linux, and Windows only.");
     process.exit(1);
   }
   success(`Platform: ${osName === "darwin" ? "macOS" : osName === "win32" ? "Windows" : "Linux"}`);
@@ -715,7 +715,7 @@ After loading, ${color("bright", "pin the extension")}: open the Extensions menu
 We need the extension ID to register the native messaging host.
 
 Find it at ${color("cyan", "chrome://extensions")}:
-- Locate ${color("bright", "OpenCode Browser Automation")}
+- Locate ${color("bright", "HaknErd Browser Automation")}
 - Click ${color("bright", "Details")}
 - Copy the ${color("bright", "ID")}
 `);
@@ -787,7 +787,7 @@ Find it at ${color("cyan", "chrome://extensions")}:
 
   header("Step 7: Configure OpenCode");
 
-  const desiredPlugin = "@different-ai/opencode-browser";
+  const desiredPlugin = "@haknerd/opencode-browser";
 
   function normalizePlugins(val) {
     if (Array.isArray(val)) return val.filter((v) => typeof v === "string");
@@ -947,7 +947,7 @@ Format rules (summary):
       log(`
 Open Chrome and:
 - Verify the extension is loaded in chrome://extensions
-- Click the OpenCode Browser extension icon to connect
+- Click the HaknErd Browser extension icon to connect
 `);
 
       const retry = await confirm("Retry broker check?");
@@ -974,7 +974,7 @@ async function update() {
   const osName = OS_NAME;
   if (osName !== "darwin" && osName !== "linux" && osName !== "win32") {
     error(`Unsupported platform: ${osName}`);
-    error("OpenCode Browser currently supports macOS, Linux, and Windows only.");
+    error("HaknErd Browser currently supports macOS, Linux, and Windows only.");
     process.exit(1);
   }
   success(`Platform: ${osName === "darwin" ? "macOS" : osName === "win32" ? "Windows" : "Linux"}`);
@@ -996,7 +996,7 @@ async function update() {
 We need the extension ID to register the native messaging host.
 
 Find it at ${color("cyan", "chrome://extensions")}:
-- Locate ${color("bright", "OpenCode Browser Automation")}
+- Locate ${color("bright", "HaknErd Browser Automation")}
 - Click ${color("bright", "Details")}
 - Copy the ${color("bright", "ID")}
 `);
@@ -1119,7 +1119,7 @@ async function status() {
       }
     }
     if (!foundAny) {
-      warn("No native host manifest found. Run: npx @different-ai/opencode-browser install");
+      warn("No native host manifest found. Run: npx @haknerd/opencode-browser install");
     }
   }
 
@@ -1200,7 +1200,7 @@ async function uninstall() {
 ${color("bright", "Note:")}
 - The unpacked extension folder remains at: ${EXTENSION_DIR}
 - Remove it manually in ${color("cyan", "chrome://extensions")}
-- Remove ${color("bright", "@different-ai/opencode-browser")} from your opencode.json/opencode.jsonc plugin list if desired.
+- Remove ${color("bright", "@haknerd/opencode-browser")} from your opencode.json/opencode.jsonc plugin list if desired.
 `);
 }
 

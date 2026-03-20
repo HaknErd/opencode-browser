@@ -1,8 +1,8 @@
-# OpenCode Browser Privacy Policy
+# HaknErd Browser Privacy Policy
 
 Last updated: 2026-02-10
 
-OpenCode Browser is a companion extension for the OpenCode plugin. It automates browser actions based on user requests.
+HaknErd Browser is a companion extension for the OpenCode plugin. It automates browser actions based on user requests.
 
 ## What data the extension can access
 
@@ -17,7 +17,7 @@ Depending on granted permissions and the sites you allow, the extension can acce
 ## How data is used
 
 - Data is used only to execute the browser automation commands requested by the user.
-- Data is passed to a local native messaging host (`com.opencode.browser_automation`) and local OpenCode plugin processes.
+- Data is passed to a local native messaging host (`com.haknerd.opencode_browser`) and local OpenCode plugin processes.
 - The extension does not include third-party analytics SDKs or ad trackers.
 
 ## Data sharing

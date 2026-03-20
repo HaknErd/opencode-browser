@@ -1,4 +1,4 @@
-# OpenCode Browser
+# HaknErd Browser
 
 Browser automation plugin for [OpenCode](https://opencode.ai).
 
@@ -21,7 +21,7 @@ This version is optimized for reliability and predictable multi-session behavior
 > Help me improve this! 
 
 ```bash
-bunx @different-ai/opencode-browser@latest install
+bunx @haknerd/opencode-browser@latest install
 ```
 
 Supports macOS, Linux, and Windows (Chrome/Edge/Brave/Chromium).
@@ -50,14 +50,14 @@ Your `opencode.json` or `opencode.jsonc` should contain:
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["@different-ai/opencode-browser"]
+  "plugin": ["@haknerd/opencode-browser"]
 }
 ```
 
 ### Update
 
 ```bash
-bunx @different-ai/opencode-browser@latest update
+bunx @haknerd/opencode-browser@latest update
 ```
 
 ## CLI tool runner (for local debugging)
@@ -66,14 +66,14 @@ Run plugin tools directly from the package CLI (without starting an OpenCode ses
 
 ```bash
 # list available browser_* tools
-npx @different-ai/opencode-browser tools
+npx @haknerd/opencode-browser tools
 
 # run a single tool
-npx @different-ai/opencode-browser tool browser_status
-npx @different-ai/opencode-browser tool browser_query --args '{"mode":"page_text"}'
+npx @haknerd/opencode-browser tool browser_status
+npx @haknerd/opencode-browser tool browser_query --args '{"mode":"page_text"}'
 
 # run built-in end-to-end smoke test (click + text selector + container scroll)
-npx @different-ai/opencode-browser self-test
+npx @haknerd/opencode-browser self-test
 ```
 
 This is useful for debugging issue reports (for example inbox/chat UIs) before involving a full OpenCode workflow.
@@ -201,9 +201,9 @@ Selector-based tools wait up to 2000ms by default; set `timeoutMs: 0` to disable
 Examples:
 
 ```bash
-npx @different-ai/opencode-browser tool browser_click --args "{\"selector\":\"text:Filters\",\"waitForSelector\":\"[role='menu']\"}"
-npx @different-ai/opencode-browser tool browser_choose --args "{\"controlSelector\":\"div[role='combobox']\",\"optionText\":\"One way\"}"
-npx @different-ai/opencode-browser tool browser_query --args "{\"selector\":\"[role='option']\",\"mode\":\"list\"}"
+npx @haknerd/opencode-browser tool browser_click --args "{\"selector\":\"text:Filters\",\"waitForSelector\":\"[role='menu']\"}"
+npx @haknerd/opencode-browser tool browser_choose --args "{\"controlSelector\":\"div[role='combobox']\",\"optionText\":\"One way\"}"
+npx @haknerd/opencode-browser tool browser_query --args "{\"selector\":\"[role='option']\",\"mode\":\"list\"}"
 ```
 
 Diagnostics:
@@ -222,7 +222,7 @@ Diagnostics:
 ## Troubleshooting
 
 **Extension says native host not available**
-- Re-run `npx @different-ai/opencode-browser install`
+- Re-run `npx @haknerd/opencode-browser install`
 - If you loaded a custom extension ID, rerun with `--extension-id <id>`
 
 **Tab ownership errors**
@@ -233,7 +233,7 @@ Diagnostics:
 ## Uninstall
 
 ```bash
-npx @different-ai/opencode-browser uninstall
+npx @haknerd/opencode-browser uninstall
 ```
 
 Then remove the unpacked extension in `chrome://extensions` and remove the plugin from `opencode.json` or `opencode.jsonc`.

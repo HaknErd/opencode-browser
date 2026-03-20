@@ -1,6 +1,6 @@
-const NATIVE_HOST_NAME = "com.opencode.browser_automation"
+const NATIVE_HOST_NAME = "com.haknerd.opencode_browser"
 const KEEPALIVE_ALARM = "keepalive"
-const PERMISSION_HINT = "Click the OpenCode Browser extension icon and approve requested permissions."
+const PERMISSION_HINT = "Click the HaknErd Browser extension icon and approve requested permissions."
 const OPTIONAL_RUNTIME_PERMISSIONS = ["nativeMessaging", "downloads", "debugger"]
 const OPTIONAL_RUNTIME_ORIGINS = ["<all_urls>"]
 
@@ -233,7 +233,7 @@ async function connect() {
       if (err?.message) {
         connectionAttempts++
         if (connectionAttempts === 1) {
-          console.log("[OpenCode] Native host not available. Run: npx @different-ai/opencode-browser install")
+          console.log("[HaknErd Browser] Native host not available. Run: npx @haknerd/opencode-browser install")
         } else if (connectionAttempts % 20 === 0) {
           console.log("[OpenCode] Still waiting for native host...")
         }

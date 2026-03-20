@@ -397,9 +397,11 @@ const plugin: Plugin = async (ctx) => {
       }),
 
       browser_click: tool({
-        description: "Click an element on the page using a selector, with optional verification of the resulting UI change.",
+        description: "Click an element on the page using a selector, with optional verification of the resulting UI change. You can also specify x and y coordinates instead of a selector.",
         args: {
-          selector: schema.string(),
+          selector: schema.string().optional(),
+          x: schema.number().optional(),
+          y: schema.number().optional(),
           index: schema.number().optional(),
           tabId: schema.number().optional(),
           timeoutMs: schema.number().optional(),
@@ -409,9 +411,11 @@ const plugin: Plugin = async (ctx) => {
           waitForText: schema.string().optional(),
           waitForNavigation: schema.boolean().optional(),
         },
-        async execute({ selector, index, tabId, timeoutMs, pollMs, waitForSelector, waitForGone, waitForText, waitForNavigation }, ctx) {
+        async execute({ selector, x, y, index, tabId, timeoutMs, pollMs, waitForSelector, waitForGone, waitForText, waitForNavigation }, ctx) {
           const data = await toolRequest("click", {
             selector,
+            x,
+            y,
             index,
             tabId,
             timeoutMs,
@@ -421,7 +425,7 @@ const plugin: Plugin = async (ctx) => {
             waitForText,
             waitForNavigation,
           });
-          return toolResultText(data, `Clicked ${selector}`);
+          return toolResultText(data, selector ? `Clicked ${selector}` : `Clicked coordinates (${x}, ${y})`);
         },
       }),
 
@@ -702,6 +706,18 @@ const plugin: Plugin = async (ctx) => {
         async execute({ tabId, clear }, ctx) {
           const data = await toolRequest("errors", { tabId, clear });
           return toolResultText(data, "[]");
+        },
+      }),
+
+      browser_eval: tool({
+        description: "Execute custom JavaScript in the page context. Use this for complex interactions (like piercing Shadow DOMs) that standard tools cannot handle. Must return a JSON-serializable value. The code runs in an async IIFE, so you can use top-level await.",
+        args: {
+          script: schema.string(),
+          tabId: schema.number().optional(),
+        },
+        async execute({ script, tabId }, ctx) {
+          const data = await toolRequest("eval", { script, tabId });
+          return toolResultText(data, "Evaluation complete");
         },
       }),
     },

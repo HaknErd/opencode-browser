@@ -312,6 +312,7 @@ async function executeTool(toolName, args) {
     highlight: toolHighlight,
     console: toolConsole,
     errors: toolErrors,
+    eval: toolEval,
   }
 
   const fn = tools[toolName]
@@ -793,12 +794,26 @@ async function pageOps(command, args) {
   const flags = typeof options.flags === "string" ? options.flags : "i"
 
   if (command === "click") {
-    const match = await resolveMatches(selectors, index, timeoutMs, pollMs)
-    if (!match.chosen) {
-      return { ok: false, error: `Element not found for selectors: ${selectors.join(", ")}` }
+    let targetElement = null
+    let selectorUsed = null
+
+    if (options.x !== undefined && options.y !== undefined) {
+      targetElement = document.elementFromPoint(options.x, options.y)
+      if (!targetElement) {
+        return { ok: false, error: `No element found at coordinates (${options.x}, ${options.y})` }
+      }
+      selectorUsed = `coordinates (${options.x}, ${options.y})`
+    } else {
+      const match = await resolveMatches(selectors, index, timeoutMs, pollMs)
+      if (!match.chosen) {
+        return { ok: false, error: `Element not found for selectors: ${selectors.join(", ")}` }
+      }
+      targetElement = match.chosen
+      selectorUsed = match.selectorUsed
     }
+
     const beforeUrl = location.href
-    clickElement(match.chosen)
+    clickElement(targetElement)
 
     if (options.waitForSelector) {
       const appeared = await waitForCondition(
@@ -834,7 +849,7 @@ async function pageOps(command, args) {
 
     return {
       ok: true,
-      selectorUsed: match.selectorUsed,
+      selectorUsed,
       verified: !!(options.waitForSelector || options.waitForGone || options.waitForText || options.waitForNavigation),
     }
   }
@@ -1267,6 +1282,8 @@ async function toolNavigate({ url, tabId }) {
 
 async function toolClick({
   selector,
+  x,
+  y,
   tabId,
   index = 0,
   timeoutMs,
@@ -1276,11 +1293,15 @@ async function toolClick({
   waitForText,
   waitForNavigation,
 }) {
-  if (!selector) throw new Error("Selector is required")
+  if (!selector && (x === undefined || y === undefined)) {
+    throw new Error("Selector or x/y coordinates are required")
+  }
   const tab = await getTabById(tabId)
 
   const result = await runInPage(tab.id, "click", {
     selector,
+    x,
+    y,
     index,
     timeoutMs,
     pollMs,
@@ -1290,7 +1311,7 @@ async function toolClick({
     waitForNavigation,
   })
   if (!result?.ok) throw new Error(result?.error || "Click failed")
-  const used = result.selectorUsed || selector
+  const used = result.selectorUsed || selector || `coordinates (${x}, ${y})`
   return { tabId: tab.id, content: result.verified ? `Clicked ${used} and verified the change` : `Clicked ${used}` }
 }
 
@@ -1764,6 +1785,28 @@ async function toolErrors({ tabId, clear = false } = {}) {
   return {
     tabId: tab.id,
     content: JSON.stringify(errors, null, 2),
+  }
+}
+
+async function toolEval({ script, tabId }) {
+  if (!script) throw new Error("script is required")
+  const tab = await getTabById(tabId)
+
+  const result = await chrome.scripting.executeScript({
+    target: { tabId: tab.id },
+    func: async (userScript) => {
+      // Create an async function from the string so they can use 'await'
+      const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+      const fn = new AsyncFunction(userScript);
+      return await fn();
+    },
+    args: [script],
+    world: "MAIN", // Use MAIN world to allow access to page variables if needed, or ISOLATED
+  })
+
+  return {
+    tabId: tab.id,
+    content: JSON.stringify(result[0]?.result ?? null, null, 2),
   }
 }
 
